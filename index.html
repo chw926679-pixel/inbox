@@ -31,6 +31,11 @@ main{padding:10px 12px}
 .facts .why{color:#8fd8b8}
 .sec{font-size:12.5px;color:var(--dim);margin:14px 0 6px;letter-spacing:.04em}
 .comp{border-top:1px solid var(--line);padding:8px 0;font-size:13px}
+.edge{margin-top:6px;font-size:14px;line-height:1.65}
+.edge div{padding:7px 10px;border-radius:9px;margin-bottom:5px;display:flex;gap:7px}
+.edge .g{background:#16302a;color:#9fe3c4}
+.edge .w{background:#332126;color:#f0a9b4}
+.edge b{flex:0 0 auto}
 .comp a{color:#7fb2ff;text-decoration:none}
 .comp .rev{color:var(--go);font-weight:700}
 .star{color:#e8c15a}
@@ -103,6 +108,12 @@ function card(c,prog){
   const isDone=done.has(c.keyword);
   const link=prog?'<div class="linkbox"><div class="sec">1688 링크 붙여넣기 → 엔터</div>'+
     '<input placeholder="https://detail.1688.com/..."></div>':"";
+  // 우리가 들어갈 자리인가 — 없으면 통째로 생략한다 (빈 제목만 뜨는 게 최악)
+  const en=(c.edge&&c.edge.notes)||[];
+  const edge=en.length?'<div class="sec">🎯 우리가 들어갈 자리인가</div><div class="edge">'+
+    en.map(n=>'<div class="'+(n[0]==="good"?"g":"w")+'"><b>'+
+      (n[0]==="good"?"✓":"⚠")+'</b><span>'+esc(n[1])+'</span></div>').join("")+
+    '</div>':"";
   const srch=(c.search_volume||0)>0?
     '<div>네이버에서 한 달 <em>'+c.search_volume.toLocaleString()+'번</em> 검색되는 말</div>':"";
   return '<div class="card '+(isDone?'done':'')+'" data-kw="'+esc(c.keyword)+'">'+
@@ -120,6 +131,7 @@ function card(c,prog){
       '<div>1.5~3만원대에는 아직 파는 상품이 없음</div>')+
     srch+
   '</div>'+
+  edge+
   '<div class="sec">💰 여기서 돈 버는 상품들 (⭐ = 리뷰 거의 없는데 잘 팔림)</div>'+comps+
   '<div class="sec">🔎 1688에서 이렇게 검색 (누르면 복사됨)</div><div class="cn">'+cn+'</div>'+
   link+
