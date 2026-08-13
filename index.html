@@ -18,15 +18,18 @@ h1{font-size:17px}#meta{color:var(--dim);font-size:12px;margin-top:2px}
 .tab.on{background:#2b3446;color:var(--tx);border-color:#3d4a63}
 main{padding:10px 12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
-.kw{font-size:18px;font-weight:700}
-.badges{display:flex;gap:6px;margin:6px 0 10px;flex-wrap:wrap}
-.b{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--chip);color:var(--dim)}
+.kw{font-size:19px;font-weight:800}
+.badges{display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap}
+.b{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--chip);color:var(--dim)}
 .b.season{background:#3d3320;color:#e8c15a}
 .b.dday{background:#46232a;color:#ff8f9d}
-.pitch{font-size:14px;line-height:1.55;color:#c8d0e0;margin-bottom:12px}
-.sec{font-size:12px;color:var(--dim);margin:12px 0 5px;letter-spacing:.04em}
-.money{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
-.money div b{font-size:15px}
+.hook{color:#e8c15a;font-size:14.5px;font-weight:700;margin-bottom:8px;line-height:1.5}
+.big{font-size:21px;font-weight:800;margin:4px 0 10px}
+.big em{color:var(--go);font-style:normal}
+.facts{font-size:14.5px;line-height:1.8;color:#c8d0e0}
+.facts em{color:var(--tx);font-weight:700;font-style:normal}
+.facts .why{color:#8fd8b8}
+.sec{font-size:12.5px;color:var(--dim);margin:14px 0 6px;letter-spacing:.04em}
 .comp{border-top:1px solid var(--line);padding:8px 0;font-size:13px}
 .comp a{color:#7fb2ff;text-decoration:none}
 .comp .rev{color:var(--go);font-weight:700}
@@ -88,33 +91,37 @@ function onKey(ev){
   const i=ev.target.closest(".linkbox input");if(!i||!i.value)return;
   decide(i.closest(".card").dataset.kw,"O","","link",i.value);i.value=""}
 function card(c,prog){
-  const dead=c.deadline?'<span class="b dday">발주 '+esc(c.deadline)+' 까지</span>':"";
+  const dead=c.deadline?'<span class="b dday">⏰ '+esc(c.deadline)+' 까지 발주해야 시즌을 잡음</span>':"";
   const sea=(c.season&&c.season!=="연중"&&c.season!=="?")?
-    '<span class="b season">'+esc(c.season)+" "+c.peak_month+"월 "+c.ratio+"배</span>":"";
+    '<span class="b season">'+c.peak_month+'월에 '+Math.round(c.ratio)+'배로 뛰는 '+esc(c.season)+' 상품</span>':"";
   const m=c.money;
   const comps=(c.competitors||[]).map(p=>'<div class="comp">'+
     '<a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+(p.star?'<span class="star">⭐</span> ':'')+esc(p.name||'(이름없음)')+'</a><br>'+
-    '월 <span class="rev">'+W(p.revenue)+'원</span> · '+p.sales.toLocaleString()+'개 · '+
-    p.price.toLocaleString()+'원 · 리뷰 '+p.reviews.toLocaleString()+'</div>').join("");
+    '한 달 <span class="rev">'+W(p.revenue)+'원</span> 벌음 — '+p.sales.toLocaleString()+'개 × '+
+    p.price.toLocaleString()+'원 (리뷰 '+p.reviews.toLocaleString()+'개)</div>').join("");
   const cn=(c.cn_terms||[]).map(t=>'<span data-act="copy" data-t="'+esc(t)+'">'+esc(t)+'</span>').join("");
   const isDone=done.has(c.keyword);
   const link=prog?'<div class="linkbox"><div class="sec">1688 링크 붙여넣기 → 엔터</div>'+
     '<input placeholder="https://detail.1688.com/..."></div>':"";
+  const srch=(c.search_volume||0)>0?
+    '<div>네이버에서 한 달 <em>'+c.search_volume.toLocaleString()+'번</em> 검색되는 말</div>':"";
   return '<div class="card '+(isDone?'done':'')+'" data-kw="'+esc(c.keyword)+'">'+
   '<div class="kw">'+esc(c.keyword)+'</div>'+
-  '<div class="badges">'+sea+dead+
-    '<span class="b">순도 '+c.purity+'%</span>'+
-    '<span class="b">검색 '+(c.search_volume||0).toLocaleString()+'</span></div>'+
-  '<div class="pitch">'+esc(c.pitch)+'</div>'+
-  '<div class="sec">💰 이 판에 흐르는 돈 (28일)</div>'+
-  '<div class="money">'+
-    '<div>매출 약 <b>'+W(m.revenue_28d)+'원</b></div><div>판매 <b>'+m.units_28d.toLocaleString()+'</b>개</div>'+
-    '<div>파는자리 <b>'+m.sellers+'</b> · 무명 <b>'+c.newbie.count+'</b>('+c.newbie.pct+'%)</div>'+
-    '<div>주력가 <b>'+m.price_p50.toLocaleString()+'</b>원 (p75 '+m.price_p75.toLocaleString()+')</div>'+
-    '<div>우리밴드 자리 <b>'+m.band_sellers+'</b></div><div>밴드판매 <b>'+m.band_units.toLocaleString()+'</b>개</div>'+
+  '<div class="badges">'+sea+dead+'</div>'+
+  (c.pitch?'<div class="hook">'+esc(c.pitch)+'</div>':'')+
+  '<div class="big">한 달에 약 <em>'+W(m.revenue_28d)+'원</em>어치 팔리는 판</div>'+
+  '<div class="facts">'+
+    '<div>월 100개 넘게 파는 상품이 <em>'+m.sellers+'개</em></div>'+
+    '<div>그중 <em>'+c.newbie.count+'개</em>는 리뷰 100개도 안 되는 새 상품 ('+c.newbie.pct+'%)'+
+      (c.newbie.pct>=40?' <span class="why">→ 새로 들어가도 팔린다는 뜻</span>':'')+'</div>'+
+    '<div>주로 <em>'+m.price_p50.toLocaleString()+'원</em> 안팎에 팔림 (비싼 축은 '+m.price_p75.toLocaleString()+'원)</div>'+
+    (m.band_sellers>0?
+      '<div>1.5~3만원대에서도 <em>'+m.band_sellers+'개 상품</em>이 월 <em>'+m.band_units.toLocaleString()+'개</em> 팔림</div>':
+      '<div>1.5~3만원대에는 아직 파는 상품이 없음</div>')+
+    srch+
   '</div>'+
-  '<div class="sec">🏪 여기서 버는 애들 (⭐=리뷰100↓ 무명)</div>'+comps+
-  '<div class="sec">🔎 1688 검색어 (탭=복사)</div><div class="cn">'+cn+'</div>'+
+  '<div class="sec">💰 여기서 돈 버는 상품들 (⭐ = 리뷰 거의 없는데 잘 팔림)</div>'+comps+
+  '<div class="sec">🔎 1688에서 이렇게 검색 (누르면 복사됨)</div><div class="cn">'+cn+'</div>'+
   link+
   (prog?"":'<div class="acts">'+
     '<button class="o" data-act="O">O 들어간다</button>'+
