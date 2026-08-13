@@ -121,9 +121,17 @@ function updateMeta(){
     if(!v.ts||new Date(v.ts).toDateString()!==todayStr)continue;
     if(v.d==="O")oCount++;else if(v.d==="X")xCount++;else if(v.d==="hold")hCount++;
   }
+  // 데이터가 며칠 전 것인지 — 4일 넘게 낡았으면 경고를 붙인다
+  let age="";
+  if(DATA.asof){
+    const olds=Object.entries(DATA.asof).map(([k,v])=>{
+      const d=Math.round((Date.now()-new Date(v))/864e5);
+      return {k,d}}).filter(x=>x.d>=4);
+    if(olds.length)age=" · ⚠ "+olds.map(x=>x.k+" 숫자가 "+x.d+"일 전 것").join(", ");
+  }
   document.getElementById("meta").textContent=
     DATA.published_at+" 발행 · 남은 "+remaining+" · 오늘 O "+oCount+" · X "+xCount+
-    (hCount?" · 보류 "+hCount:"");
+    (hCount?" · 보류 "+hCount:"")+age;
 }
 function decide(kw,d,reason,memo,link,msg){
   post({keyword:kw,decision:d,reason:reason||"",memo:memo||"",link_1688:link||""});
