@@ -105,7 +105,8 @@ function card(c,prog){
   const comps=(c.competitors||[]).map(p=>'<div class="comp">'+
     '<a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+(p.star?'<span class="star">⭐</span> ':'')+esc(p.name||'(이름없음)')+'</a><br>'+
     '한 달 <span class="rev">'+W(p.revenue)+'원</span> 벌음 — '+p.sales.toLocaleString()+'개 × '+
-    p.price.toLocaleString()+'원 (리뷰 '+p.reviews.toLocaleString()+'개)</div>').join("");
+    p.price.toLocaleString()+'원 ('+(p.reviews==null?'리뷰수 확인 못함':
+      '리뷰 '+p.reviews.toLocaleString()+'개')+')</div>').join("");
   const cn=(c.cn_terms||[]).map(t=>'<span data-act="copy" data-t="'+esc(t)+'">'+esc(t)+'</span>').join("");
   const isDone=done.has(c.keyword);
   const link=prog?'<div class="linkbox"><div class="sec">1688 링크 붙여넣기 → 엔터</div>'+
