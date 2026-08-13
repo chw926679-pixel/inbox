@@ -282,6 +282,14 @@ document.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{
   ch.classList.add("on");FILTER=ch.dataset.f;render()});
 document.getElementById("search").addEventListener("input",ev=>{
   Q=ev.target.value.trim().toLowerCase();render()});
+// IntersectionObserver 가 안 발화하는 브라우저 대비 폴백 — 스크롤 위치로도 이어붙인다
+let scrollTick=false;
+window.addEventListener("scroll",()=>{
+  if(scrollTick)return;scrollTick=true;
+  setTimeout(()=>{scrollTick=false;
+    if(filteredList.length>shown&&
+       window.innerHeight+window.scrollY>=document.body.scrollHeight-800)appendMore()},150)},
+  {passive:true});
 render();
 if(K)fetch(API).then(r=>r.json()).then(d=>{DATA=d;updateMeta();render()})
   .catch(()=>{document.getElementById("list").innerHTML=
