@@ -126,8 +126,13 @@ function card(c,prog){
   '<div class="big">한 달에 약 <em>'+W(m.revenue_28d)+'원</em>어치 팔리는 판</div>'+
   '<div class="facts">'+
     '<div>월 100개 넘게 파는 상품이 <em>'+m.sellers+'개</em></div>'+
-    '<div>그중 <em>'+c.newbie.count+'개</em>는 리뷰 100개도 안 되는 새 상품 ('+c.newbie.pct+'%)'+
-      (c.newbie.pct>=40?' <span class="why">→ 새로 들어가도 팔린다는 뜻</span>':'')+'</div>'+
+    // 🔴 분모는 "리뷰를 확인한 상품 수"다. 못 믿는 값은 뺐으므로 위의 총 개수와
+    //    다를 수 있다 — 그 차이를 숨기면 8개 중 1개가 20% 로 보인다.
+    '<div>'+(c.newbie.unknown?'리뷰를 확인한 <em>'+c.newbie.known+'개</em> 중 ':'그중 ')+
+      '<em>'+c.newbie.count+'개</em>는 리뷰 100개도 안 되는 새 상품 ('+c.newbie.pct+'%)'+
+      (c.newbie.pct>=40?' <span class="why">→ 새로 들어가도 팔린다는 뜻</span>':'')+
+      (c.newbie.unknown?'<br><span class="why">나머지 '+c.newbie.unknown+
+        '개는 리뷰수를 확인 못 했다</span>':'')+'</div>'+
     '<div>주로 <em>'+m.price_p50.toLocaleString()+'원</em> 안팎에 팔림 (비싼 축은 '+m.price_p75.toLocaleString()+'원)</div>'+
     (m.band_sellers>0?
       '<div>1.5~3만원대에서도 <em>'+m.band_sellers+'개 상품</em>이 월 <em>'+m.band_units.toLocaleString()+'개</em> 팔림</div>':
