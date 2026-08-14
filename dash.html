@@ -45,6 +45,9 @@ background:var(--chip);color:var(--dim)}
 .gsum.g3{background:#17342a;color:var(--go)}
 .gsum.g2{background:#3a3020;color:var(--hold)}
 .gsum.g1{background:#3d2126;color:var(--no)}
+.new{font-size:10.5px;font-weight:800;letter-spacing:.06em;padding:3px 7px;
+border-radius:5px;background:var(--go);color:#08130e}
+.card.isnew{border-color:#2d6b52}
 h2{margin:9px 0 2px;font-size:15px;font-weight:600;line-height:1.4;text-wrap:balance}
 h2 a{text-decoration:none}
 .qty{color:var(--no);font-style:normal;font-weight:700;font-size:12.5px}
@@ -99,6 +102,7 @@ pointer-events:none;z-index:20}
 <button data-f="vd" data-v="◎○" aria-pressed="false">◎ ○</button>
 <button data-f="vd" data-v="" aria-pressed="false">전체</button>
 <button data-f="gate" data-v="3" aria-pressed="false">게이트 3/3</button>
+<button data-f="onlynew" data-v="1" aria-pressed="false" id="btnNew">오늘 새것</button>
 </div>
 <div class="controls" role="group" aria-label="정렬">
 <button data-f="sort" data-v="score" aria-pressed="true">점수순</button>
@@ -115,7 +119,7 @@ const K = new URLSearchParams(location.search).get("k") || "";
 const API = "https://pgftsnnvnthpvwuicxpv.supabase.co/functions/v1/kanpick-dash?k="
           + encodeURIComponent(K);
 let DATA = null;
-const state = {vd:"◎", gate:0, sort:"score", q:""};
+const state = {vd:"◎", gate:0, sort:"score", q:"", onlynew:0};
 // 폰에서 치운 것은 즉시 사라지게 (회수 전까지 로컬로 기억)
 const gone = new Set(JSON.parse(localStorage.getItem("kanpick_dash_gone") || "[]"));
 
@@ -164,12 +168,12 @@ function card(c){
     ? `https://detail.1688.com/offer/${c.offer}.html`
     : `https://s.1688.com/selloffer/offer_search.htm?keywords=${encodeURIComponent(c.kw||"")}`;
   const nm = esc(c.name);
-  return `<article class="card${gone.has(c.pid)?" gone":""}" id="c_${c.pid}"
-   data-vd="${esc(c.verdict)}" data-score="${c.score||0}"
-   data-profit="${c.m_profit||0}" data-ratio="${(ratio*100).toFixed(1)}"
-   data-gates="${pass}" data-q="${esc((c.name||"")+" "+(c.kw||""))}">
+  const isNew = c.first_at && DATA && c.first_at === DATA.today;
+  return `<article class="card${gone.has(c.pid)?" gone":""}${isNew?" isnew":""}"
+   id="c_${c.pid}">
   <div class="top"><span class="vd ${vcls}">${esc(c.verdict)}</span>
    <span class="score">${c.score||0}</span>
+   ${isNew?'<span class="new">NEW</span>':""}
    <span class="gsum g${pass}">게이트 ${pass}/3</span></div>
   <h2><a href="https://www.coupang.com/vp/products/${c.pid}" target="_blank"
    rel="noopener">${nm}</a>${c.qty>1?` <em class="qty">${c.qty}개입</em>`:""}</h2>
@@ -208,6 +212,7 @@ function render(){
   if (!DATA) { el.innerHTML = '<div class="empty">불러오는 중…</div>'; return; }
   let rows = DATA.items.filter(c => {
     if (state.vd && !state.vd.includes(c.verdict)) return false;
+    if (state.onlynew && c.first_at !== DATA.today) return false;
     if (state.q && !((c.name||"")+" "+(c.kw||"")).toLowerCase()
         .includes(state.q.toLowerCase())) return false;
     return true;
@@ -228,10 +233,11 @@ function render(){
 document.querySelectorAll(".controls button").forEach(b => {
   b.addEventListener("click", () => {
     const f = b.dataset.f, v = b.dataset.v;
-    if (f === "gate") {
+    if (f === "gate" || f === "onlynew") {
       const on = b.getAttribute("aria-pressed") === "true";
       b.setAttribute("aria-pressed", String(!on));
-      state.gate = on ? 0 : 3;
+      if (f === "gate") state.gate = on ? 0 : 3;
+      else state.onlynew = on ? 0 : 1;
     } else {
       state[f] = v;
       document.querySelectorAll(`[data-f="${f}"]`).forEach(x =>
@@ -250,10 +256,14 @@ async function load(){
     if (!r.ok) throw new Error(r.status);
     DATA = await r.json();
     const a = DATA.asof || {};
+    const n = DATA.new_count || 0;
     document.getElementById("meta").textContent =
-      `수집 ${(DATA.scanned||0).toLocaleString()}개 → 후보 ${DATA.items.length}개 · `
+      `수집 ${(DATA.scanned||0).toLocaleString()}개 → 후보 ${DATA.items.length}개`
+      + (n ? ` · 오늘 새것 ${n}개` : "") + " · "
       + Object.entries(a).map(([k,v]) => k+" "+v).join(" · ")
       + ` · ${DATA.built_at} 기준`;
+    const bn = document.getElementById("btnNew");
+    if (bn) bn.textContent = n ? `오늘 새것 ${n}` : "오늘 새것";
     render();
   }catch(e){
     document.getElementById("meta").textContent = "불러오지 못했다 — 주소의 k 값 확인";
