@@ -310,8 +310,11 @@ function engineCalc(P, i){
   const contrib = i.sell - cf - up;
   const ratio = i.sell ? contrib / i.sell : 0;
   const den = 1 - comm - P.sales_vat;
-  const be = M.ceil((up + inout + ship + storage + retCost) / den);
-  const minP = M.ceil((up + inout + ship + storage + retCost + P.target) / den);
+  // 판매가에 비례하지 않는 개당 비용은 전부 분자에 (cost.py 의 unit_fixed 와 같다).
+  // svc·barcode 는 현재 정책에서 0 이라 항이 없다 (월고정비 제외 · 트리오링크 통합라벨).
+  const unitFixed = up + inout + ship + storage + retCost + exch + exitCost;
+  const be = M.ceil(unitFixed / den);
+  const minP = M.ceil((unitFixed + P.target) / den);
   return {contrib, ratio, be, minP, up, tier: t[0], hard, boxes,
           wv: bkg ? i.sell / bkg : 0, freeShip: goodsCny >= P.cn.free_thr,
           co, costr: i.sell ? up / i.sell : 1};
