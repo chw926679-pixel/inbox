@@ -133,20 +133,33 @@ function updateMeta(){
     DATA.published_at+" 발행 · 남은 "+remaining+" · 오늘 O "+oCount+" · X "+xCount+
     (hCount?" · 보류 "+hCount:"")+age;
 }
-function decide(kw,d,reason,memo,link,msg){
-  post({keyword:kw,decision:d,reason:reason||"",memo:memo||"",link_1688:link||""});
+// 🔴 전송이 실패하면 카드를 되살린다 (2026-08-17).
+//    전에는 서버 응답과 무관하게 done 처리해서, 실패한 판정이 폰에만 남고
+//    PC에는 영영 안 갔다 — 8/13 삼각대 퀵슈(회수 누락)와 합쳐지면 완전 유실이다.
+//    화면은 즉시 반응하되(낙관), 실패가 확인되면 원상복구한다.
+async function decide(kw,d,reason,memo,link,msg){
   done.set(kw,{kw,d,ts:Date.now()});saveDone();
   const el=document.querySelector('[data-kw="'+CSS.escape(kw)+'"]');
   if(el)el.classList.add("done");
   updateMeta();
-  toast(msg||(d==="O"?"O — 들어간다":d==="X"?"X — 버림":"보류"))}
-function undo(kw,card){
-  post({keyword:kw,decision:"undo"});
+  toast(msg||(d==="O"?"O — 들어간다":d==="X"?"X — 버림":"보류"));
+  const ok=await post({keyword:kw,decision:d,reason:reason||"",memo:memo||"",link_1688:link||""});
+  if(!ok){
+    done.delete(kw);saveDone();
+    if(el)el.classList.remove("done");
+    updateMeta();
+    toast("⚠ 저장 안 됐다 — 다시 눌러라");
+  }
+}
+async function undo(kw,card){
   done.delete(kw);saveDone();
   card.classList.remove("done");
   const r=card.querySelector(".reasons");if(r)r.classList.remove("show");
   updateMeta();
-  toast("되돌렸다 — 다시 판단해주세요")}
+  toast("되돌렸다 — 다시 판단해주세요");
+  const ok=await post({keyword:kw,decision:"undo"});
+  if(!ok)toast("⚠ 되돌리기 전송 실패 — 다시 눌러라");
+}
 function onAct(ev){
   const b=ev.target.closest("[data-act]");if(!b)return;
   const card=b.closest(".card"),kw=card.dataset.kw,act=b.dataset.act;
