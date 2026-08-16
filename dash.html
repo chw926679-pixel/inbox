@@ -104,17 +104,20 @@ box-shadow:0 12px 40px rgba(0,0,0,.6);border-radius:14px}
 /* 🔴 반쪽 창(왼쪽 대시보드 · 오른쪽 1688)이 기본 작업 자세다.
    창이 1120px 이상이면 카드를 왼쪽으로 밀어 계산기와 안 겹치게 하고,
    그보다 좁으면 폰처럼 아래에서 올라오는 시트로 바꾼다. */
-@media (max-width:1119px){
+@media (max-width:879px){          /* 폰·좁은 창 — 아래에서 올라오는 시트 */
   #calcwrap{right:0;bottom:0;left:0;width:auto;max-width:none;
   max-height:80vh;border-radius:16px 16px 0 0}
   #calcwrap .card{border-radius:16px 16px 0 0}
 }
-@media (min-width:1120px){
-  body.calcon main,body.calcon header{margin-left:max(0px,calc(50% - 560px - 180px))}
+/* 880px 이상 — 계산기를 오른쪽에 세우고 카드를 그만큼 왼쪽으로 좁힌다.
+   반쪽 창(≈1000px)에서 카드 620px + 계산기 340px 이 나란히 선다. */
+@media (min-width:880px){
+  body.calcon header,body.calcon main{margin-left:0;margin-right:376px;
+  max-width:none}
+  #calcbd{display:none!important}                       /* 카드를 안 가린다 */
 }
 #calcbd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:29}
 #calcbd.show{display:block}
-@media (min-width:1120px){#calcbd{display:none!important}}  /* 안 가린다 */
 .chead{display:flex;align-items:center;gap:8px}
 .chead b{font-size:14px}
 #calcfor{color:var(--dim);font-size:11px;margin-top:2px;line-height:1.4;
