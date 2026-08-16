@@ -81,7 +81,8 @@ font-size:13.5px;font-weight:700}
 .acts{display:flex;gap:8px;margin-top:8px}
 .acts button{flex:1;padding:11px 0;border-radius:9px;border:0;font:inherit;
 font-size:14px;font-weight:700;color:#fff;cursor:pointer}
-.bx{background:var(--no)}.bh{background:var(--hold)}
+.bo{background:var(--go);color:#08130e!important;flex:1.4}
+.bx{background:var(--no);flex:.6}.bh{background:var(--hold)}
 .lnk:focus-visible,.acts button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .reasons{display:none;gap:6px;flex-wrap:wrap;margin-top:8px}
 .reasons.show{display:flex}
@@ -165,6 +166,7 @@ pointer-events:none;z-index:20}
 <button data-f="vd" data-v="" aria-pressed="false">전체</button>
 <button data-f="gate" data-v="3" aria-pressed="false">게이트 3/3</button>
 <button data-f="onlynew" data-v="1" aria-pressed="false" id="btnNew">새 후보</button>
+<button data-f="picks" data-v="1" aria-pressed="false" id="btnPicks">✅ 통과</button>
 <button id="btnCalc" aria-pressed="false">🧮 계산기</button>
 </div>
 <div class="controls" role="group" aria-label="정렬">
@@ -216,7 +218,7 @@ const K = new URLSearchParams(location.search).get("k") || "";
 const API = "https://pgftsnnvnthpvwuicxpv.supabase.co/functions/v1/kanpick-dash?k="
           + encodeURIComponent(K);
 let DATA = null;
-const state = {vd:"◎", gate:0, sort:"score", q:"", onlynew:0};
+const state = {vd:"◎", gate:0, sort:"score", q:"", onlynew:0, picks:0};
 // 폰에서 치운 것은 즉시 사라지게 (회수 전까지 로컬로 기억)
 const gone = new Set(JSON.parse(localStorage.getItem("kanpick_dash_gone") || "[]"));
 
@@ -240,7 +242,7 @@ async function decide(pid, d, reason){
   if (el) el.classList.add("gone");
   gone.add(pid);
   localStorage.setItem("kanpick_dash_gone", JSON.stringify([...gone]));
-  toast(d === "X" ? "치웠다" : "보류");
+  toast(d === "X" ? "치웠다" : d === "O" ? "✅ 통과 — 소싱 대상에 넣는다" : "보류");
   try{
     await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({product_id:pid, name, decision:d, reason:reason||""})});
@@ -420,6 +422,19 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") calcOpen(fal
 document.querySelectorAll("#calcwrap input").forEach(el =>
   el.addEventListener("input", calcRun));
 
+// 🔴 쿠팡·1688 은 **새 창**으로 띄운다 (2026-08-17 대표 요청).
+//    왼쪽 대시보드 · 오른쪽 참고창 자세라, 탭으로 뜨면 매번 창을 옮겨야 했다.
+//    창 이름을 하나로 고정해 같은 창을 계속 재사용한다 (창이 쌓이지 않는다).
+//    팝업이 막히면 window.open 이 null 이라 — 그때는 그냥 새 탭으로 보낸다.
+function refWin(a){
+  const w = Math.max(560, Math.round(screen.availWidth / 2));
+  const win = window.open(a.href, "kanpick_ref",
+    `width=${w},height=${screen.availHeight},left=${screen.availWidth - w},top=0`);
+  if (!win) return true;                 // 차단됨 → 기본 동작(새 탭)에 맡긴다
+  win.focus();
+  return false;
+}
+
 function card(c){
   const price = c.price || 0;
   const contrib = c.r_contrib || 0;
@@ -448,7 +463,8 @@ function card(c){
    ${isNew?'<span class="new">NEW</span>':""}
    <span class="gsum g${pass}">게이트 ${pass}/3</span></div>
   <h2><a href="https://www.coupang.com/vp/products/${c.pid}" target="_blank"
-   rel="noopener">${nm}</a>${c.qty>1?` <em class="qty">${c.qty}개입</em>`:""}</h2>
+   rel="noopener" onclick="return refWin(this)">${nm}</a>${
+   c.qty>1?` <em class="qty">${c.qty}개입</em>`:""}</h2>
   <p class="kw">${esc([c.kw, c.cat].filter(Boolean).join(" · "))}</p>
   <div class="hero">
    <div><span class="lbl">쿠팡 판매가</span><b>${price.toLocaleString()}<i>원</i></b></div>
@@ -465,13 +481,15 @@ function card(c){
   </dl>
   <div class="links">
    <a class="lnk cp" href="https://www.coupang.com/vp/products/${c.pid}"
-    target="_blank" rel="noopener">쿠팡에서 보기</a>
-   <a class="lnk cn" href="${cn}" target="_blank" rel="noopener">${c.offer?"1688 원본":"1688 검색"}</a>
+    target="_blank" rel="noopener" onclick="return refWin(this)">쿠팡에서 보기</a>
+   <a class="lnk cn" href="${cn}" target="_blank" rel="noopener"
+    onclick="return refWin(this)">${c.offer?"1688 원본":"1688 검색"}</a>
    <button class="calcbtn" onclick="calcFrom('${c.pid}')">🧮 계산</button>
   </div>
   <div class="acts">
-   <button class="bx" onclick="document.getElementById('r_${c.pid}').classList.toggle('show')">X 치우기</button>
+   <button class="bo" onclick="decide('${c.pid}','O')">✅ 통과</button>
    <button class="bh" onclick="decide('${c.pid}','hold')">보류</button>
+   <button class="bx" onclick="document.getElementById('r_${c.pid}').classList.toggle('show')">X</button>
   </div>
   <div class="reasons" id="r_${c.pid}">${
     ["부피큼","마진안남","경쟁셈","맘에안듦","규제","기타"].map(r =>
@@ -480,9 +498,33 @@ function card(c){
  </article>`;
 }
 
+// ✅ 통과 목록 — 이건 후보가 아니라 "이미 정한 것"이라 카드가 아니라 줄로 본다
+function picksView(){
+  const ps = (DATA && DATA.picks) || [];
+  if (!ps.length) return '<div class="empty">통과시킨 상품이 없다 — '
+    + '카드에서 ✅ 통과를 누르면 여기 모인다</div>';
+  return ps.map(p => `<article class="card"><div class="top">
+    <span class="vd v1">✅</span><span class="gsum">${esc(p.at||"")}</span></div>
+   <h2><a href="https://www.coupang.com/vp/products/${p.pid}" target="_blank"
+    rel="noopener" onclick="return refWin(this)">${esc(p.name)}</a></h2>
+   <div class="links">
+    <a class="lnk cp" href="https://www.coupang.com/vp/products/${p.pid}"
+     target="_blank" rel="noopener" onclick="return refWin(this)">쿠팡</a>
+    ${p.offer ? `<a class="lnk cn" href="https://detail.1688.com/offer/${p.offer}.html"
+     target="_blank" rel="noopener" onclick="return refWin(this)">1688 원본</a>` : ""}
+    <button class="calcbtn" onclick="calcFrom('${p.pid}')">🧮 계산</button>
+   </div></article>`).join("");
+}
+
 function render(){
   const el = document.getElementById("list");
   if (!DATA) { el.innerHTML = '<div class="empty">불러오는 중…</div>'; return; }
+  if (state.picks) {
+    el.innerHTML = picksView();
+    document.getElementById("count").textContent =
+      ((DATA.picks || []).length) + "개 통과";
+    return;
+  }
   let rows = DATA.items.filter(c => {
     if (state.vd && !state.vd.includes(c.verdict)) return false;
     if (state.onlynew && !(c.first_at &&
@@ -507,10 +549,11 @@ function render(){
 document.querySelectorAll(".controls button").forEach(b => {
   b.addEventListener("click", () => {
     const f = b.dataset.f, v = b.dataset.v;
-    if (f === "gate" || f === "onlynew") {
+    if (f === "gate" || f === "onlynew" || f === "picks") {
       const on = b.getAttribute("aria-pressed") === "true";
       b.setAttribute("aria-pressed", String(!on));
       if (f === "gate") state.gate = on ? 0 : 3;
+      else if (f === "picks") state.picks = on ? 0 : 1;
       else state.onlynew = on ? 0 : 1;
     } else {
       state[f] = v;
