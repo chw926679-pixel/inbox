@@ -102,7 +102,7 @@ pointer-events:none;z-index:20}
 <button data-f="vd" data-v="◎○" aria-pressed="false">◎ ○</button>
 <button data-f="vd" data-v="" aria-pressed="false">전체</button>
 <button data-f="gate" data-v="3" aria-pressed="false">게이트 3/3</button>
-<button data-f="onlynew" data-v="1" aria-pressed="false" id="btnNew">오늘 새것</button>
+<button data-f="onlynew" data-v="1" aria-pressed="false" id="btnNew">새 후보</button>
 </div>
 <div class="controls" role="group" aria-label="정렬">
 <button data-f="sort" data-v="score" aria-pressed="true">점수순</button>
@@ -168,7 +168,9 @@ function card(c){
     ? `https://detail.1688.com/offer/${c.offer}.html`
     : `https://s.1688.com/selloffer/offer_search.htm?keywords=${encodeURIComponent(c.kw||"")}`;
   const nm = esc(c.name);
-  const isNew = c.first_at && DATA && c.first_at === DATA.today;
+  // NEW = 최근 2일 (자정 지나도 어제 잡힌 게 바로 안 사라지게)
+  const since = DATA && (DATA.new_since || DATA.today);
+  const isNew = c.first_at && since && c.first_at >= since;
   return `<article class="card${gone.has(c.pid)?" gone":""}${isNew?" isnew":""}"
    id="c_${c.pid}">
   <div class="top"><span class="vd ${vcls}">${esc(c.verdict)}</span>
@@ -212,7 +214,8 @@ function render(){
   if (!DATA) { el.innerHTML = '<div class="empty">불러오는 중…</div>'; return; }
   let rows = DATA.items.filter(c => {
     if (state.vd && !state.vd.includes(c.verdict)) return false;
-    if (state.onlynew && c.first_at !== DATA.today) return false;
+    if (state.onlynew && !(c.first_at &&
+        c.first_at >= (DATA.new_since || DATA.today))) return false;
     if (state.q && !((c.name||"")+" "+(c.kw||"")).toLowerCase()
         .includes(state.q.toLowerCase())) return false;
     return true;
@@ -259,11 +262,11 @@ async function load(){
     const n = DATA.new_count || 0;
     document.getElementById("meta").textContent =
       `수집 ${(DATA.scanned||0).toLocaleString()}개 → 후보 ${DATA.items.length}개`
-      + (n ? ` · 오늘 새것 ${n}개` : "") + " · "
+      + (n ? ` · 새 후보 ${n}개` : "") + " · "
       + Object.entries(a).map(([k,v]) => k+" "+v).join(" · ")
       + ` · ${DATA.built_at} 기준`;
     const bn = document.getElementById("btnNew");
-    if (bn) bn.textContent = n ? `오늘 새것 ${n}` : "오늘 새것";
+    if (bn) bn.textContent = n ? `새 후보 ${n}` : "새 후보";
     render();
   }catch(e){
     document.getElementById("meta").textContent = "불러오지 못했다 — 주소의 k 값 확인";
