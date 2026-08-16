@@ -487,7 +487,10 @@ function card(c){
   <div class="hero">
    <div><span class="lbl">쿠팡 판매가</span><b>${price.toLocaleString()}<i>원</i></b></div>
    <div><span class="lbl">1688 실제 원가</span><b>¥${(c.r_cny||0).toFixed(1)}</b>
-    <span class="sub">${band} · ${c.n_off||0}개${sm?` <em class="${scls}">${sm}</em>`:""}</span></div>
+    <span class="sub">${band} · ${c.n_off||0}개${sm?` <em class="${scls}">${sm}</em>`:""}</span>
+    ${c.chk_min!=null?`<span class="sub">상세확인 ¥${c.chk_min}~${c.chk_max??c.chk_min}${
+      (c.chk_max||c.chk_min) > (c.r_cny||0)*1.5
+        ? ' <em class="s3">옵션↑주의</em>' : ' <em class="s1">실가OK</em>'}</span>`:""}</div>
   </div>
   <div class="gates">${gates.map(([n,ok,v]) =>
     `<span class="g ${ok?"on":"off"}">${n} <b>${v}</b></span>`).join("")}</div>
