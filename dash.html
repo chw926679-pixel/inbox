@@ -195,6 +195,8 @@ pointer-events:none;z-index:20}
   <label>수수료 %<input id="ci_comm" type="number" inputmode="decimal" step="0.1" value="10.8"></label>
   <label>N개입<input id="ci_set" type="number" inputmode="numeric" value="1"></label>
  </div>
+ <button id="calcsave" class="calcbtn" style="display:none;width:100%;margin-top:9px"
+  onclick="calcSave()">📐 이 상품에 실가·포장 저장</button>
  <div class="cout">
   <div class="cbig"><span class="lbl">개당 공헌</span>
    <b id="co_contrib">—</b><span class="pct" id="co_ratio"></span></div>
@@ -412,23 +414,64 @@ function calcOpen(on){
 }
 // 🔴 카드 → 계산기. 넣는 위안가는 **매칭된 오퍼들의 중앙값**(r_cny)이다.
 //    카드에 보이는 값과 계산기가 다르면 둘 중 뭘 믿을지 알 수 없다 (대표 지시).
+//    r_cny 는 **낱개 기준**이다 (kanpick_dash 가 r_cny × qty 로 쓴다) —
+//    그대로 넣고 N개입만 채우면 계산기가 ×N 한다. 나누면 이중으로 깎인다.
+let CALC_PID = null;                 // 지금 계산기에 올라와 있는 상품
 function calcFrom(pid){
   const c = (DATA && DATA.items || []).find(x => x.pid === pid);
   if (!c) return;
+  CALC_PID = pid;
   const set = Math.max(1, c.qty || 1);
   const put = (id, v) => { if (v != null) document.getElementById(id).value = v; };
   put("ci_sell", c.price);
   put("ci_set", set);
-  // r_cny 는 세트 전체 값이라 1개 기준으로 되돌려 넣는다 (계산기가 다시 ×N 한다)
-  put("ci_cny", c.r_cny != null ? +(c.r_cny / set).toFixed(2) : null);
+  put("ci_cny", c.r_cny != null ? +(+c.r_cny).toFixed(2) : null);
   const el = document.getElementById("calcfor");
   el.textContent = (c.name || "") + (c.n_off ? ` · 매칭 ${c.n_off}개 중앙값` : "");
+  document.getElementById("calcsave").style.display = "";
   calcOpen(true);
   document.getElementById("calcwrap").scrollTop = 0;
 }
+// 🔴 대표가 계산기에서 고친 실가·포장을 **그 상품에 저장** (2026-08-17 대표 지시).
+//    서버(dash_decisions, decision='spec')를 거쳐 dash_sync 가 manual_price ·
+//    manual_spec 에 넣는다 — "사람 확인값은 어떤 자동값보다 위다" 경로 그대로.
+//    화면도 즉시 반영한다: 이 카드의 공헌·게이트를 입력값으로 다시 계산해 다시 그린다.
+async function calcSave(){
+  if (!CALC_PID) return;
+  const c = (DATA.items || []).find(x => x.pid === CALC_PID);
+  if (!c) return;
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  const s = {cny: v("ci_cny"), set: Math.max(1, v("ci_set")),
+             w: v("ci_w"), d: v("ci_d"), h: v("ci_h"), g: v("ci_g")};
+  if (!s.cny){ toast("¥ 를 넣어야 저장한다"); return; }
+  let ok = false;
+  try{
+    const r = await fetch(API, {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({product_id: CALC_PID, name: c.name || "",
+        decision: "spec", reason: "", memo: JSON.stringify(s)})});
+    ok = r.ok;
+  }catch(e){ ok = false; }
+  if (!ok){ toast("⚠ 저장 안 됐다 — 다시 눌러라"); return; }
+  // 즉시 반영 — PC 재계산 전까지 폰 화면은 이 값으로 산다
+  if (DATA.calc){
+    const o = engineCalc(DATA.calc.params,
+      {sell: c.price, cny: s.cny * s.set, qty: 200,
+       w: s.w, d: s.d, h: s.h, g: s.g});
+    c.r_cny = s.cny; c.r_contrib = Math.round(o.contrib);
+    c.r_ratio = o.ratio; c.r_proc = Math.round(o.up);
+    c.chk_min = s.cny; c.chk_max = s.cny; c.manual = 1;
+  }
+  toast("📐 저장됐다 — 이 값이 추정보다 우선한다");
+  render();
+}
 document.getElementById("btnCalc").addEventListener("click", () => {
   const on = document.getElementById("btnCalc").getAttribute("aria-pressed") === "true";
-  if (!on) document.getElementById("calcfor").textContent = "직접 입력";
+  if (!on){
+    CALC_PID = null;                       // 카드 없이 열면 저장할 대상이 없다
+    document.getElementById("calcfor").textContent = "직접 입력";
+    document.getElementById("calcsave").style.display = "none";
+  }
   calcOpen(!on);
 });
 document.getElementById("calcx").addEventListener("click", () => calcOpen(false));
@@ -488,7 +531,8 @@ function card(c){
    <div><span class="lbl">쿠팡 판매가</span><b>${price.toLocaleString()}<i>원</i></b></div>
    <div><span class="lbl">1688 실제 원가</span><b>¥${(c.r_cny||0).toFixed(1)}</b>
     <span class="sub">${band} · ${c.n_off||0}개${sm?` <em class="${scls}">${sm}</em>`:""}</span>
-    ${c.chk_min!=null?`<span class="sub">상세확인 ¥${c.chk_min}~${c.chk_max??c.chk_min}${
+    ${c.manual?`<span class="sub"><em class="s1">📐 직접 입력값</em></span>`
+      :c.chk_min!=null?`<span class="sub">상세확인 ¥${c.chk_min}~${c.chk_max??c.chk_min}${
       (c.chk_max||c.chk_min) > (c.r_cny||0)*1.5
         ? ' <em class="s3">옵션↑주의</em>' : ' <em class="s1">실가OK</em>'}</span>`:""}</div>
   </div>
