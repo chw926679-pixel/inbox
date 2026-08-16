@@ -236,6 +236,9 @@ function toast(m){const t=document.getElementById("toast");t.textContent=m;
 // 🔴 상품명을 onclick 인자로 넘기지 않는다 — JSON.stringify 의 큰따옴표가
 //    onclick="..." 속성을 끊어서 판정이 조용히 안 걸렸다 (2026-08-14).
 //    이름은 카드 DOM 에서 읽는다.
+// 🔴 전송이 실패하면 카드를 되살린다 (2026-08-17).
+//    전에는 응답을 안 보고 카드부터 숨겨서, 실패한 판정이 조용히 사라졌다
+//    — 그 상품은 화면에서도 없고 서버에도 없는 상태가 된다.
 async function decide(pid, d, reason){
   const el = document.getElementById("c_" + pid);
   const name = el ? (el.querySelector("h2 a")||{}).textContent || "" : "";
@@ -243,10 +246,19 @@ async function decide(pid, d, reason){
   gone.add(pid);
   localStorage.setItem("kanpick_dash_gone", JSON.stringify([...gone]));
   toast(d === "X" ? "치웠다" : d === "O" ? "✅ 통과 — 소싱 대상에 넣는다" : "보류");
+  let ok = false;
   try{
-    await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"},
+    const r = await fetch(API, {method:"POST",
+      headers:{"Content-Type":"application/json"},
       body: JSON.stringify({product_id:pid, name, decision:d, reason:reason||""})});
-  }catch(e){ toast("전송 실패 — 다시 눌러라"); }
+    ok = r.ok;
+  }catch(e){ ok = false; }
+  if (!ok){
+    gone.delete(pid);
+    localStorage.setItem("kanpick_dash_gone", JSON.stringify([...gone]));
+    if (el) el.classList.remove("gone");
+    toast("⚠ 저장 안 됐다 — 다시 눌러라");
+  }
 }
 
 // ── 판정 계산기 ──────────────────────────────────────────
