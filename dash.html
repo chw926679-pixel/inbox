@@ -92,6 +92,27 @@ padding:8px 12px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer}
 background:#3d2126;border:1px solid #5e2f36;color:#ff8f9d;font-size:12.5px;
 line-height:1.6}
 #alerts.show{display:block}
+#calc{display:none;max-width:760px;margin:12px auto 0;padding:0 12px}
+#calc.show{display:block}
+#calc .card{padding:14px}
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.cgrid label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--dim)}
+.cgrid input{width:100%;background:var(--chip);border:1px solid var(--line);
+color:var(--tx);border-radius:8px;padding:8px 9px;font:inherit;font-size:15px}
+.cgrid input:focus-visible{outline:2px solid var(--link);outline-offset:1px}
+.cout{margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+.cbig{display:flex;align-items:baseline;gap:10px}
+.cbig b{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.cbig .pct{font-size:16px;font-weight:700}
+.ok{color:var(--go)}.ng{color:var(--no)}
+.crows{display:grid;grid-template-columns:repeat(2,1fr);gap:7px 10px;margin-top:10px}
+.crows>div{display:flex;justify-content:space-between;font-size:13px}
+.crows dt{color:var(--dim);font-weight:400}
+.crows dd{margin:0;font-weight:700}
+#calcnote{color:var(--dim);font-size:11px;margin-top:9px;line-height:1.5}
+#calcfail{display:none;margin-top:9px;padding:8px 11px;border-radius:8px;
+background:#3d2126;border:1px solid #5e2f36;color:#ff8f9d;font-size:12px}
+#calcfail.show{display:block}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#2b3446;
 padding:10px 18px;border-radius:22px;font-size:13px;opacity:0;transition:.25s;
 pointer-events:none;z-index:20}
@@ -108,6 +129,7 @@ pointer-events:none;z-index:20}
 <button data-f="vd" data-v="" aria-pressed="false">전체</button>
 <button data-f="gate" data-v="3" aria-pressed="false">게이트 3/3</button>
 <button data-f="onlynew" data-v="1" aria-pressed="false" id="btnNew">새 후보</button>
+<button id="btnCalc" aria-pressed="false">🧮 계산기</button>
 </div>
 <div class="controls" role="group" aria-label="정렬">
 <button data-f="sort" data-v="score" aria-pressed="true">점수순</button>
@@ -117,6 +139,36 @@ pointer-events:none;z-index:20}
 <input id="q" placeholder="상품·키워드 검색" autocomplete="off">
 <div id="count"></div>
 </header>
+<section id="calc"><div class="card">
+ <div class="top"><b>판정 계산기</b>
+  <span class="gsum" id="calctier">—</span></div>
+ <div id="calcfail"></div>
+ <div class="cgrid">
+  <label>판매가 원<input id="ci_sell" type="number" inputmode="numeric" value="19900"></label>
+  <label>1688 ¥<input id="ci_cny" type="number" inputmode="decimal" step="0.1" value="10"></label>
+  <label>수량 개<input id="ci_qty" type="number" inputmode="numeric" value="200"></label>
+  <label>가로 cm<input id="ci_w" type="number" inputmode="decimal" value="30"></label>
+  <label>세로 cm<input id="ci_d" type="number" inputmode="decimal" value="20"></label>
+  <label>높이 cm<input id="ci_h" type="number" inputmode="decimal" value="5"></label>
+  <label>무게 g<input id="ci_g" type="number" inputmode="numeric" value="400"></label>
+  <label>수수료 %<input id="ci_comm" type="number" inputmode="decimal" step="0.1" value="10.8"></label>
+  <label>N개입<input id="ci_set" type="number" inputmode="numeric" value="1"></label>
+ </div>
+ <div class="cout">
+  <div class="cbig"><span class="lbl">개당 공헌</span>
+   <b id="co_contrib">—</b><span class="pct" id="co_ratio"></span></div>
+  <div class="gates" id="co_gates"></div>
+  <dl class="crows">
+   <div><dt>개당 원가</dt><dd id="co_up">—</dd></div>
+   <div><dt>원가율</dt><dd id="co_costr">—</dd></div>
+   <div><dt>손익분기가</dt><dd id="co_be">—</dd></div>
+   <div><dt>목표판매가</dt><dd id="co_min">—</dd></div>
+   <div><dt>최대 사입가</dt><dd id="co_max">—</dd></div>
+   <div><dt>무게값어치</dt><dd id="co_wv">—</dd></div>
+  </dl>
+  <p id="calcnote"></p>
+ </div>
+</div></section>
 <main id="list"></main>
 <div class="toast" id="toast"></div>
 <script>
@@ -154,6 +206,155 @@ async function decide(pid, d, reason){
       body: JSON.stringify({product_id:pid, name, decision:d, reason:reason||""})});
   }catch(e){ toast("전송 실패 — 다시 눌러라"); }
 }
+
+// ── 판정 계산기 ──────────────────────────────────────────
+// 🔴 engine/cost.py 트리오링크 경로의 **사본**이다 (손계산 금지 규칙의 예외).
+//    상수는 전부 dash.json 의 calc.params 로 주입되고, calc.refs(엔진이 직접
+//    계산한 기준 케이스)를 로드 시 재계산해 어긋나면 스스로 잠근다.
+//    엔진 공식을 고치면 여기도 같이 고쳐야 한다 — 어긋나면 배너가 뜬다.
+const bankRound = x => {                 // 파이썬 round() = 반올림 반내림 짝수
+  const f = Math.floor(x);
+  return (x - f === .5) ? (f % 2 === 0 ? f : f + 1) : Math.round(x);
+};
+function engineCalc(P, i){
+  const M = Math, q = i.qty, comm = i.comm != null ? i.comm : P.comm_default;
+  const wkg = i.g / 1000;
+  const vol = i.w * i.d * i.h / P.vol_div * P.vol_disc;    // 해상 부피무게 ×0.6
+  const bkg = M.max(wkg, vol), cbm = i.w * i.d * i.h / 1e6;
+  const sum = i.w + i.d + i.h;
+  const fx = P.fx_measured * (1 + P.fx_buffer);
+  const goodsCny = i.cny * q;
+  // 중국내운임 — 包邮 임계 미만이면 택배/화물 중 싼 쪽 (엔진 기본 경로)
+  let cnC = 0;
+  if (goodsCny < P.cn.free_thr && wkg * q > 0){
+    const tk = wkg * q;
+    const ex = P.cn.first + M.max(0, tk - 1) * P.cn.add;
+    cnC = tk < P.cn.thr_kg ? ex : M.min(ex, M.max(P.cn.min, tk * P.cn.kg));
+  }
+  const goods = goodsCny * fx, cnf = cnC * fx, proc = goods + cnf;
+  // 해상 — 트리오링크 LCL, 화물 최소 1CBM 가정 후 부피 비중 안분
+  const skuCbm = cbm * q, shipCbm = M.max(1, skuCbm);
+  const bill = M.max(1, M.ceil(shipCbm * 2) / 2);
+  let lcl = P.trio.lcl_cbm + M.max(0, bill - 1) / 0.5 * P.trio.lcl_half
+          + P.trio.cont_base;
+  if (bill > 3) lcl += (bill - 3) / 0.5 * P.trio.cont_half;
+  const sea = lcl * (skuCbm / shipCbm);
+  // C/O — 관세 절감이 발급비보다 크면 발급 (단독 화물 기준)
+  const dutyNo = goods * P.duty, co = dutyNo > P.trio.co;
+  const duty = co ? 0 : dutyNo, coCost = co ? P.trio.co : 0;
+  const customs = P.trio.customs + P.trio.bl;
+  const labels = P.trio.label * q;
+  const inspect = M.ceil(q / P.lot) * P.trio.inspect;
+  const boxes = M.max(1, M.ceil(cbm * q / P.carton_cbm));
+  const domestic = (P.trio.doc + P.trio.swap) * boxes;    // 직납 — 국내택배·FC 0
+  const logistics = sea + coCost + customs + labels + inspect + domestic;
+  const ivat = (goods + sea + duty) * P.vat;
+  const landed = proc + logistics + duty + ivat;
+  const up = landed / M.max(1, q * (1 - P.defect));        // 정상품으로 나눔
+  // 쿠팡 — 사이즈 등급 (미실측 → SAFETY_UPLIFT)
+  let t = P.tiers[P.tiers.length - 1];
+  for (const x of P.tiers){ if (sum <= x[1] && wkg <= x[2]){ t = x; break; } }
+  const inout = bankRound(t[3] * P.uplift), ship = bankRound(t[4] * P.uplift);
+  const hard = sum > P.hardcut_cm || wkg > P.hardcut_kg;
+  const commission = i.sell * comm;
+  const storage = 0;                                       // 입고 30일 무료 구간
+  const retUnit = q * P.return_rate > P.return_free ? t[5] : 0;
+  const retCost = (retUnit + ship) * P.return_rate;
+  const svat = i.sell * P.sales_vat;
+  const exch = ship * P.exchange;
+  const exitFee = M.max(0, q * P.disposal - P.exit_free) * P.exit_fee;
+  const exitCost = (P.return_ship_box * M.max(1, boxes) * P.disposal + exitFee) / q;
+  const cf = commission + inout + ship + storage + retCost + svat + exch + exitCost;
+  const contrib = i.sell - cf - up;
+  const ratio = i.sell ? contrib / i.sell : 0;
+  const den = 1 - comm - P.sales_vat;
+  const be = M.ceil((up + inout + ship + storage + retCost) / den);
+  const minP = M.ceil((up + inout + ship + storage + retCost + P.target) / den);
+  return {contrib, ratio, be, minP, up, tier: t[0], hard, boxes,
+          wv: bkg ? i.sell / bkg : 0, freeShip: goodsCny >= P.cn.free_thr,
+          co, costr: i.sell ? up / i.sell : 1};
+}
+function calcSelfTest(C){
+  // 엔진이 계산해 실어 보낸 기준 케이스 3개를 그대로 재계산 — 어긋나면 잠근다
+  const bad = [];
+  for (const r of C.refs || []){
+    const o = engineCalc(C.params, {cny:r.cny, sell:r.sell, w:r.w, d:r.d,
+                                    h:r.h, g:r.g, qty:r.qty});
+    if (Math.abs(o.contrib - r.contrib) > Math.max(20, r.sell * 0.005)
+        || o.be !== r.breakeven)
+      bad.push(`기준(¥${r.cny}/${r.sell}원): 폰 ${Math.round(o.contrib)} vs 엔진 ${Math.round(r.contrib)}`);
+  }
+  return bad;
+}
+let CALC_OK = false;
+function calcRun(){
+  const C = DATA && DATA.calc;
+  const note = document.getElementById("calcnote");
+  if (!C){ note.textContent = "계산기 데이터가 없다 — PC에서 dash_push 를 한 번 돌려라"; return; }
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  const set = Math.max(1, v("ci_set"));
+  const i = {sell: v("ci_sell"), cny: v("ci_cny") * set, qty: v("ci_qty") || 1,
+             w: v("ci_w"), d: v("ci_d"), h: v("ci_h"), g: v("ci_g"),
+             comm: v("ci_comm") / 100};
+  if (!i.sell || !i.cny){ note.textContent = "판매가와 위안가를 넣어라"; return; }
+  const o = engineCalc(C.params, i);
+  // 최대 사입가 — 게이트(공헌·공헌율)를 지키는 ¥ 상한 (calc_gui 와 같은 이분탐색)
+  let lo = 0, hi = 1000;
+  for (let k = 0; k < 40; k++){
+    const mid = (lo + hi) / 2;
+    const c2 = engineCalc(C.params, {...i, cny: mid});
+    (c2.contrib >= C.params.gate.contrib && c2.ratio >= C.params.gate.ratio)
+      ? lo = mid : hi = mid;
+  }
+  const G = C.params.gate, ok = (b) => b ? "ok" : "ng";
+  const $ = id => document.getElementById(id);
+  $("co_contrib").textContent = Math.round(o.contrib).toLocaleString() + "원";
+  $("co_contrib").className = ok(o.contrib >= G.contrib);
+  $("co_ratio").textContent = (o.ratio * 100).toFixed(1) + "%";
+  $("co_ratio").className = "pct " + ok(o.ratio >= G.ratio);
+  $("co_gates").innerHTML = [
+    ["공헌 5천", o.contrib >= G.contrib],
+    ["공헌율 35%", o.ratio >= G.ratio],
+    ["무게값어치", o.wv >= G.wv],
+    ["원가율 30%", o.costr <= 0.30],
+  ].map(([n, b]) => `<span class="g ${b ? "on" : "off"}">${n}</span>`).join("");
+  $("co_up").textContent = Math.round(o.up).toLocaleString() + "원";
+  $("co_costr").textContent = (o.costr * 100).toFixed(0) + "%";
+  $("co_be").textContent = o.be.toLocaleString() + "원";
+  $("co_min").textContent = o.minP.toLocaleString() + "원";
+  $("co_max").textContent = lo < 0.2 ? "없음"
+    : "¥" + (lo / set).toFixed(1) + (set > 1 ? " /개" : "");
+  $("co_wv").textContent = Math.round(o.wv).toLocaleString() + "원/kg";
+  $("calctier").textContent = o.hard ? "⛔ 사이즈 초과 — 로켓그로스 불가"
+    : `${o.tier} · ${o.boxes}박스`;
+  note.textContent =
+    (o.freeShip ? "包邮 가정(총액 ¥600+)" : "중국내운임 추정 포함")
+    + ` · ${o.co ? "C/O 발급" : "관세 납부"} · 트리오링크 LCL·미실측 보정 1.5배`
+    + (set > 1 ? ` · ${set}개입 세트(규격·무게는 세트 기준 입력)` : "")
+    + " · 확정 판정은 PC 판정계산기";
+}
+function calcInit(){
+  const C = DATA && DATA.calc;
+  const fail = document.getElementById("calcfail");
+  if (C){
+    const bad = calcSelfTest(C);
+    CALC_OK = bad.length === 0;
+    fail.classList.toggle("show", !CALC_OK);
+    if (!CALC_OK)
+      fail.textContent = "⚠ 엔진 대조 실패 — 이 계산기를 믿지 마라. PC 판정계산기를 써라. "
+                       + bad[0];
+  }
+  calcRun();
+}
+document.getElementById("btnCalc").addEventListener("click", () => {
+  const b = document.getElementById("btnCalc");
+  const on = b.getAttribute("aria-pressed") === "true";
+  b.setAttribute("aria-pressed", String(!on));
+  document.getElementById("calc").classList.toggle("show", !on);
+  if (!on) calcRun();
+});
+document.querySelectorAll("#calc input").forEach(el =>
+  el.addEventListener("input", calcRun));
 
 function card(c){
   const price = c.price || 0;
@@ -279,6 +480,7 @@ async function load(){
       al.classList.toggle("show", list.length > 0);
       al.innerHTML = list.map(a => "🔴 " + a).join("<br>");
     }
+    calcInit();
     render();
   }catch(e){
     document.getElementById("meta").textContent = "불러오지 못했다 — 주소의 k 값 확인";
