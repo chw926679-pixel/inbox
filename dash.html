@@ -88,6 +88,10 @@ font-size:14px;font-weight:700;color:#fff;cursor:pointer}
 .reasons button{background:var(--chip);border:1px solid var(--line);color:var(--tx);
 padding:8px 12px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer}
 .empty{color:var(--dim);text-align:center;padding:44px 0;font-size:14px}
+#alerts{display:none;margin-top:8px;padding:9px 12px;border-radius:9px;
+background:#3d2126;border:1px solid #5e2f36;color:#ff8f9d;font-size:12.5px;
+line-height:1.6}
+#alerts.show{display:block}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#2b3446;
 padding:10px 18px;border-radius:22px;font-size:13px;opacity:0;transition:.25s;
 pointer-events:none;z-index:20}
@@ -97,6 +101,7 @@ pointer-events:none;z-index:20}
 <header>
 <h1>칸픽 소싱 대시보드</h1>
 <div id="meta">불러오는 중…</div>
+<div id="alerts"></div>
 <div class="controls" role="group" aria-label="판정 필터">
 <button data-f="vd" data-v="◎" aria-pressed="true">◎ 최우선</button>
 <button data-f="vd" data-v="◎○" aria-pressed="false">◎ ○</button>
@@ -267,6 +272,13 @@ async function load(){
       + ` · ${DATA.built_at} 기준`;
     const bn = document.getElementById("btnNew");
     if (bn) bn.textContent = n ? `새 후보 ${n}` : "새 후보";
+    // 워치독 경고 — 시스템이 죽어 있으면 여기 뜬다
+    const al = document.getElementById("alerts");
+    if (al) {
+      const list = DATA.alerts || [];
+      al.classList.toggle("show", list.length > 0);
+      al.innerHTML = list.map(a => "🔴 " + a).join("<br>");
+    }
     render();
   }catch(e){
     document.getElementById("meta").textContent = "불러오지 못했다 — 주소의 k 값 확인";
