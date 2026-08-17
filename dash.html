@@ -605,6 +605,7 @@ function card(c){
       `<button onclick="decide('${c.pid}','X','${r}')">${r}</button>`
     ).join("")}
    <input class="xreason" id="xr_${c.pid}" placeholder="이유 직접 입력 → 엔터"
+    autocomplete="off" autocorrect="off" spellcheck="false" name="notafield"
     onkeydown="if(event.key==='Enter'){xCustom('${c.pid}')}">
   </div>
  </article>`;
