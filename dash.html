@@ -88,6 +88,9 @@ font-size:14px;font-weight:700;color:#fff;cursor:pointer}
 .reasons.show{display:flex}
 .reasons button{background:var(--chip);border:1px solid var(--line);color:var(--tx);
 padding:8px 12px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer}
+.xreason{flex:1 1 100%;background:var(--chip);border:1px solid var(--line);
+color:var(--tx);border-radius:9px;padding:9px 11px;font:inherit;font-size:13px}
+.xreason:focus-visible{outline:2px solid var(--link);outline-offset:1px}
 .empty{color:var(--dim);text-align:center;padding:44px 0;font-size:14px}
 #alerts{display:none;margin-top:8px;padding:9px 12px;border-radius:9px;
 background:#3d2126;border:1px solid #5e2f36;color:#ff8f9d;font-size:12.5px;
@@ -528,6 +531,15 @@ function refWin(a){
   return false;
 }
 
+// X 사유 직접 입력 (2026-08-17 대표 요청) — 엔터로 전송. 빈 값은 무시.
+function xCustom(pid){
+  const el = document.getElementById("xr_" + pid);
+  const v = (el && el.value || "").trim();
+  if (!v) return;
+  el.blur();                              // 폰 키보드 내리기
+  decide(pid, "X", v.slice(0, 50));       // 서버가 50자에서 자른다
+}
+
 function card(c){
   const price = c.price || 0;
   const contrib = c.r_contrib || 0;
@@ -589,9 +601,12 @@ function card(c){
    <button class="bx" onclick="document.getElementById('r_${c.pid}').classList.toggle('show')">X</button>
   </div>
   <div class="reasons" id="r_${c.pid}">${
-    ["부피큼","마진안남","경쟁셈","맘에안듦","규제","기타"].map(r =>
+    ["부피큼","마진안남","경쟁셈","맘에안듦","규제"].map(r =>
       `<button onclick="decide('${c.pid}','X','${r}')">${r}</button>`
-    ).join("")}</div>
+    ).join("")}
+   <input class="xreason" id="xr_${c.pid}" placeholder="이유 직접 입력 → 엔터"
+    onkeydown="if(event.key==='Enter'){xCustom('${c.pid}')}">
+  </div>
  </article>`;
 }
 
