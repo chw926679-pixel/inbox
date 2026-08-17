@@ -356,6 +356,16 @@ function calcRun(){
              w: v("ci_w"), d: v("ci_d"), h: v("ci_h"), g: v("ci_g"),
              comm: v("ci_comm") / 100};
   if (!i.sell || !i.cny){ note.textContent = "판매가와 위안가를 넣어라"; return; }
+  if (!(i.w && i.d && i.h && i.g)){
+    // 규격 없이 계산하면 극소형으로 잘못 잡힌다 — 아예 안 계산한다
+    ["co_contrib","co_ratio","co_up","co_costr","co_be","co_min","co_max","co_wv"]
+      .forEach(id => { document.getElementById(id).textContent = "—"; });
+    document.getElementById("co_gates").innerHTML = "";
+    document.getElementById("calctier").textContent = "규격 대기";
+    note.textContent = "가로·세로·높이·무게를 넣어라 — 1688 상세의 포장정보 표에서 "
+      + "파는 옵션 것을 옮겨 적으면 된다";
+    return;
+  }
   const o = engineCalc(C.params, i);
   // 최대 사입가 — 게이트(공헌·공헌율)를 지키는 ¥ 상한 (calc_gui 와 같은 이분탐색)
   let lo = 0, hi = 1000;
@@ -422,10 +432,14 @@ function calcFrom(pid){
   if (!c) return;
   CALC_PID = pid;
   const set = Math.max(1, c.qty || 1);
-  const put = (id, v) => { if (v != null) document.getElementById(id).value = v; };
+  const put = (id, v) => { document.getElementById(id).value = v != null ? v : ""; };
   put("ci_sell", c.price);
   put("ci_set", set);
   put("ci_cny", c.r_cny != null ? +(+c.r_cny).toFixed(2) : null);
+  // 🔴 규격·무게는 **비운다** (2026-08-18 실사고) — 이전 상품 값이 남은 채
+  //    ¥만 고치고 저장하면 남의 규격이 따라 들어간다. 165g짜리 철제
+  //    프린터선반이 그렇게 저장됐다. 1688 포장정보를 보고 직접 넣게 한다.
+  ["ci_w", "ci_d", "ci_h", "ci_g"].forEach(id => put(id, null));
   const el = document.getElementById("calcfor");
   el.textContent = (c.name || "") + (c.n_off ? ` · 매칭 ${c.n_off}개 중앙값` : "");
   const sb = document.getElementById("calcsave");
