@@ -431,7 +431,9 @@ function calcOpen(on){
 //    그대로 넣고 N개입만 채우면 계산기가 ×N 한다. 나누면 이중으로 깎인다.
 let CALC_PID = null;                 // 지금 계산기에 올라와 있는 상품
 function calcFrom(pid){
-  const c = (DATA && DATA.items || []).find(x => x.pid === pid);
+  // 통과 카드는 items(상위 400)에서 빠져 있으니 picks 에서도 찾는다
+  const c = (DATA && DATA.items || []).find(x => x.pid === pid)
+    || (DATA && DATA.picks || []).find(x => x.pid === pid && x.r_cny != null);
   if (!c) return;
   CALC_PID = pid;
   const set = Math.max(1, c.qty || 1);
@@ -611,22 +613,52 @@ function card(c){
  </article>`;
 }
 
-// ✅ 통과 목록 — 이건 후보가 아니라 "이미 정한 것"이라 카드가 아니라 줄로 본다
+// ✅ 통과 목록 — 판정에 썼던 숫자(판매량·원가·게이트)가 그대로 보여야 한다.
+//    2026-08-18: 줄 요약으로 바꿨다가 "판매량 왜 안 뜨냐" — 카드 통계를 되살렸다.
 function picksView(){
   const ps = (DATA && DATA.picks) || [];
   if (!ps.length) return '<div class="empty">통과시킨 상품이 없다 — '
     + '카드에서 ✅ 통과를 누르면 여기 모인다</div>';
-  return ps.map(p => `<article class="card"><div class="top">
+  return ps.map(p => {
+    const price = p.price || 0;
+    const contrib = p.r_contrib || 0;
+    const ratio = p.r_ratio || 0;
+    const costr = price ? (p.r_proc || 0) / price : 1;
+    const hasStats = p.r_cny != null && p.r_contrib != null;
+    const gates = [["공헌 5천", contrib >= 5000, contrib.toLocaleString()+"원"],
+                   ["공헌율 35%", ratio >= .35, Math.round(ratio*100)+"%"],
+                   ["원가율 30%", costr <= .30, Math.round(costr*100)+"%"]];
+    const band = (p.q1 && p.q3) ? `¥${p.q1.toFixed(1)}~${p.q3.toFixed(1)}` : "";
+    const stats = !hasStats ? '<p class="kw">지표 없음 — 수집 목록에서 빠진 지 오래된 상품</p>' : `
+  <div class="hero">
+   <div><span class="lbl">쿠팡 판매가</span><b>${price.toLocaleString()}<i>원</i></b></div>
+   <div><span class="lbl">1688 실제 원가</span><b>¥${(p.r_cny||0).toFixed(1)}</b>
+    <span class="sub">${band}${p.n_off?` · ${p.n_off}개`:""}</span>
+    ${p.manual?`<span class="sub"><em class="s1">📐 직접 입력값</em></span>`
+      :p.chk_min!=null?`<span class="sub">상세확인 ¥${p.chk_min}~${p.chk_max??p.chk_min}</span>`:""}</div>
+  </div>
+  <div class="gates">${gates.map(([n,ok,v]) =>
+    `<span class="g ${ok?"on":"off"}">${n} <b>${v}</b></span>`).join("")}</div>
+  <dl class="stats">
+   <div><dt>월 공헌이익</dt><dd class="big">${won(p.m_profit)}원</dd></div>
+   <div><dt>월 판매</dt><dd>${(p.monthly||0).toLocaleString()}개</dd></div>
+   <div><dt>재고 소진</dt><dd>${(p.sellout&&p.sellout<999)?p.sellout+"일":"—"}</dd></div>
+   <div><dt>리뷰</dt><dd>${(p.rev||0).toLocaleString()}</dd></div>
+  </dl>`;
+    return `<article class="card"><div class="top">
     <span class="vd v1">✅</span><span class="gsum">${esc(p.at||"")}</span></div>
    <h2><a href="https://www.coupang.com/vp/products/${p.pid}" target="_blank"
-    rel="noopener" onclick="return refWin(this)">${esc(p.name)}</a></h2>
+    rel="noopener" onclick="return refWin(this)">${esc(p.name)}</a>${
+    p.qty>1?` <em class="qty">${p.qty}개입</em>`:""}</h2>
+   ${stats}
    <div class="links">
     <a class="lnk cp" href="https://www.coupang.com/vp/products/${p.pid}"
      target="_blank" rel="noopener" onclick="return refWin(this)">쿠팡</a>
     ${p.offer ? `<a class="lnk cn" href="https://detail.1688.com/offer/${p.offer}.html"
      target="_blank" rel="noopener" onclick="return refWin(this)">1688 원본</a>` : ""}
     <button class="calcbtn" onclick="calcFrom('${p.pid}')">🧮 계산</button>
-   </div></article>`).join("");
+   </div></article>`;
+  }).join("");
 }
 
 function render(){
